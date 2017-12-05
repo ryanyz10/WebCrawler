@@ -9,6 +9,16 @@ import java.util.*;
  * TODO: Implement this!
  */
 public class WebQueryEngine {
+    private static final HashSet<Character> operators = new HashSet<>();
+
+    static {
+        operators.add('(');
+        operators.add(')');
+        operators.add('|');
+        operators.add('&');
+    }
+
+    private Index index;
     /**
      * Returns a WebQueryEngine that uses the given Index to constructe answers to queries.
      *
@@ -16,8 +26,11 @@ public class WebQueryEngine {
      * @return A WebQueryEngine ready to be queried.
      */
     public static WebQueryEngine fromIndex(WebIndex index) {
-        // TODO: Implement this!
-        return new WebQueryEngine();
+        return new WebQueryEngine(index);
+    }
+
+    public WebQueryEngine(Index index) {
+        this.index = index;
     }
 
     /**
@@ -27,7 +40,36 @@ public class WebQueryEngine {
      * @return A collection of web pages satisfying the query.
      */
     public Collection<Page> query(String query) {
-        // TODO: Implement this!
+        query = query.replaceAll("\\s", "");
+
+        ArrayList<Token> tokens = new ArrayList<>(3);
+
+        StringBuilder word = new StringBuilder();
+        for (int i = 0; i < query.length(); i++) {
+            char current = query.charAt(i);
+            if (operators.contains(current)) {
+                tokens.add(new Token(Character.toString(current)));
+            }
+
+            word.append(current);
+            if (i < query.length() - 1) {
+                char next = query.charAt(i + 1);
+                if (operators.contains(next)) {
+                    tokens.add(new Token(word.toString()));
+                    word = new StringBuilder();
+                }
+            }
+        }
+
+
+
         return new LinkedList<>();
+    }
+
+    class Token {
+        String token;
+        Token(String token) {
+            this.token = token;
+        }
     }
 }

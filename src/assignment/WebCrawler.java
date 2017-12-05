@@ -42,14 +42,26 @@ public class WebCrawler {
         // Try to start crawling, adding new URLS as we see them.
         try {
             while (!remaining.isEmpty()) {
+                // pass the current URL to the handler so it can keep track of the information
+                URL currURL = remaining.poll();
+                handler.setURL(currURL.toString());
                 // Parse the next URL's page
-                parser.parse(new InputStreamReader(remaining.poll().openStream()), handler);
+                try {
+                    parser.parse(new InputStreamReader(currURL.openStream()), handler);
+                } catch (FileNotFoundException e) {
+                    System.err.printf("Could not find file %s\n", currURL.toString());
+                } catch (org.attoparser.ParseException e) {
+                    System.err.printf("Could not parse %s\n", currURL.toString());
+                }
+
 
                 // Add any new URLs
                 remaining.addAll(handler.newURLs());
             }
 
             handler.getIndex().save("index.db");
+            System.out.printf("Total time taken: %.3f seconds\n", ((double)handler.getTotalTime())/1000000000);
+            System.out.printf("Pages visited: %d\n", handler.getTotalPages());
         } catch (Exception e) {
             // Bad exception handling :(
             System.err.println("Error: Index generation failed!");
