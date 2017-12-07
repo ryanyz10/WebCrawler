@@ -9,8 +9,6 @@ import org.attoparser.simple.*;
 /**
  * A markup handler which is called by the Attoparser markup parser as it parses the input;
  * responsible for building the actual web index.
- *
- * TODO: Implement this!
  */
 public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     private String currURL;
@@ -18,9 +16,9 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     private HashSet<String> seen;
     private WebIndex index;
     private boolean ignoreLastTag; // indicates whether or not we should ignore the last accessed tag
-    private long totalTime;
-    private long totalPages;
-
+    private long totalTime; // total time taken to crawl all pages
+    private long totalPages; // total number of pages looked at by current handler
+    private int currWordLoc; // keeps track of current position in the page
 
     public CrawlingMarkupHandler() {
         newURLs = new LinkedList<>();
@@ -29,6 +27,7 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
         ignoreLastTag = false;
         totalTime = 0;
         totalPages = 0;
+        currWordLoc = 1;
     }
 
     /**
@@ -75,10 +74,10 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     * @param col             the column of the document where parsing starts
     */
     public void handleDocumentStart(long startTimeNanos, int line, int col) {
-        // System.out.println("Start of document");
         newURLs = new LinkedList<>();
         seen.add(currURL);
         totalPages++;
+        currWordLoc = 0;
     }
 
     /**
@@ -90,7 +89,6 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     * @param col             the column of the document where the parsing ends
     */
     public void handleDocumentEnd(long endTimeNanos, long totalTimeNanos, int line, int col) {
-        // System.out.println("End of document");
         totalTime += totalTimeNanos;
     }
 
@@ -102,6 +100,7 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     * @param col         the column in the document where this element appears
     */
     public void handleOpenElement(String elementName, Map<String, String> attributes, int line, int col) {
+        // TODO handle more cases, for now handle urls and script/style tags
         if (elementName.equals("script") || elementName.equals("style")) {
             ignoreLastTag = true;
             return;
@@ -115,10 +114,9 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
         TreeMap<String, String> caselessAttr = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         caselessAttr.putAll(attributes);
 
-        // TODO handle more cases, for now handle urls and script/style tags
         if (elementName.equals("a")) {
             String href = caselessAttr.get("href");
-            // no emails
+            // only examine files that are valid webpages
             if (!href.contains(".html") || !href.contains(".htm")) {
                 return;
             }
@@ -151,13 +149,12 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     * @param line        the line in the document where this elements appears.
     * @param col         the column in the document where this element appears.
     */
-    public void handleCloseElement(String elementName, int line, int col) {
-        // System.out.println("End element:   " + elementName);
-    }
+    public void handleCloseElement(String elementName, int line, int col) {}
 
     @Override
     public void handleStandaloneElement(String elementName, Map<String,String> attributes, boolean minimized, int line, int col) {
-
+        // TODO handle single element tags
+        ignoreLastTag = true;
     }
 
     /**
@@ -173,40 +170,33 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
             ignoreLastTag = false;
             return;
         }
-        // System.out.print("Characters:    \"");
+
         StringBuilder str = new StringBuilder();
         for(int i = start; i < start + length; i++) {
             // Instead of printing raw whitespace, we're escaping it
-            switch(ch[i]) {
-                case '\\':
-                    // System.out.print("\\\\");
-                    str.append(" ");
-                    break;
-                case '"':
-                    // System.out.print("\\\"");
-                    str.append(" ");
-                    break;
-                case '\n':
-                    // System.out.print("\\n");
-                    str.append(" ");
-                    break;
-                case '\r':
-                    // System.out.print("\\r");
-                    str.append(" ");
-                    break;
-                case '\t':
-                    // System.out.print("\\t");
-                    str.append(" ");
-                    break;
-                default:
-                    // System.out.print(ch[i]);
-                    str.append(ch[i]);
-                    break;
+            String currChar = Character.toString(ch[i]).toLowerCase();
+            if (currChar.matches("\\s")) {
+                addWord(str.toString());
+                str = new StringBuilder();
+            } else if (currChar.matches("\\w")) {
+                str.append(currChar);
+            } else {
+                // TODO handle other characters
+                if (currChar.equals("-")) {
+                    str.append(currChar);
+                } else if (currChar.equals("\\")) {
+                    str.append("\\");
+                }
             }
         }
+    }
 
-        // System.out.print("\"\n");
-        index.add(str.toString(), currURL);
-
+    /**
+     * Adds the given word to the index
+     * @param str the word to be add
+     */
+    private void addWord(String str) {
+        index.add(str, currURL, currWordLoc);
+        currWordLoc++;
     }
 }

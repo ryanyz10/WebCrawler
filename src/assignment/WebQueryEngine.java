@@ -9,9 +9,10 @@ import java.util.*;
  * TODO: Implement this!
  */
 public class WebQueryEngine {
-    private static final HashSet<Character> operators = new HashSet<>();
+    private static final HashSet<Character> operators;
 
     static {
+        operators = new HashSet<>();
         operators.add('(');
         operators.add(')');
         operators.add('|');

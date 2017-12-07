@@ -1,4 +1,5 @@
 package assignment;
+import java.io.Serializable;
 import java.net.URL;
 
 /**
@@ -8,7 +9,7 @@ import java.net.URL;
  *
  * TODO: Implement this!
  */
-public class Page {
+public class Page implements Serializable {
     // The URL the page was located at.
     private URL url;
 
@@ -24,4 +25,19 @@ public class Page {
      * @return the URL of the page.
      */
     public URL getURL() { return url; }
+
+    @Override
+    public boolean equals(Object o) {
+        return (o instanceof Page) && this.url.toString().equals(((Page) o).url.toString());
+    }
+
+    @Override
+    public int hashCode() {
+        return url.toString().hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return this.url.toString();
+    }
 }
