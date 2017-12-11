@@ -11,13 +11,11 @@ import org.attoparser.simple.*;
  * responsible for building the actual web index.
  */
 public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
-    private String currURL;
+    private Page currPage;
     private LinkedList<URL> newURLs;
     private HashSet<String> seen;
     private WebIndex index;
     private boolean ignoreLastTag; // indicates whether or not we should ignore the last accessed tag
-    private long totalTime; // total time taken to crawl all pages
-    private long totalPages; // total number of pages looked at by current handler
     private int currWordLoc; // keeps track of current position in the page
 
     public CrawlingMarkupHandler() {
@@ -25,8 +23,6 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
         index = new WebIndex();
         seen = new HashSet<>();
         ignoreLastTag = false;
-        totalTime = 0;
-        totalPages = 0;
         currWordLoc = 1;
     }
 
@@ -45,16 +41,8 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
         return newURLs;
     }
 
-    public void setURL(String currURL) {
-        this.currURL = currURL;
-    }
-
-    public long getTotalTime() {
-        return totalTime;
-    }
-
-    public long getTotalPages() {
-        return totalPages;
+    public void setURL(URL currURL) {
+        currPage = new Page(currURL);
     }
 
     /*
@@ -75,8 +63,7 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     */
     public void handleDocumentStart(long startTimeNanos, int line, int col) {
         newURLs = new LinkedList<>();
-        seen.add(currURL);
-        totalPages++;
+        seen.add(currPage.toString());
         currWordLoc = 0;
     }
 
@@ -88,9 +75,7 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     * @param line            the line of the document where parsing ends
     * @param col             the column of the document where the parsing ends
     */
-    public void handleDocumentEnd(long endTimeNanos, long totalTimeNanos, int line, int col) {
-        totalTime += totalTimeNanos;
-    }
+    public void handleDocumentEnd(long endTimeNanos, long totalTimeNanos, int line, int col) {}
 
     /**
     * Called at the start of any tag.
@@ -100,7 +85,8 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
     * @param col         the column in the document where this element appears
     */
     public void handleOpenElement(String elementName, Map<String, String> attributes, int line, int col) {
-        // TODO handle more cases, for now handle urls and script/style tags
+        elementName = elementName.toLowerCase();
+
         if (elementName.equals("script") || elementName.equals("style")) {
             ignoreLastTag = true;
             return;
@@ -110,36 +96,38 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
             return;
         }
 
-        elementName = elementName.toLowerCase();
+
         TreeMap<String, String> caselessAttr = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         caselessAttr.putAll(attributes);
 
-        if (elementName.equals("a")) {
-            String href = caselessAttr.get("href");
-            // only examine files that are valid webpages
-            if (!href.contains(".html") || !href.contains(".htm")) {
+        String href = caselessAttr.get("href");
+
+        if (href == null) {
+            return;
+        }
+
+        // only examine files that are valid web pages
+        if (!href.contains(".html") && !href.contains(".htm")) {
+            return;
+        }
+
+        try {
+            // get an absolute path
+            Path basePath = FileSystems.getDefault().getPath(currPage.toString());
+            Path resolvedPath = basePath.getParent().resolve(href);
+            Path absolutePath = resolvedPath.normalize();
+            String path = absolutePath.toString();
+
+            if (seen.contains(path)) {
                 return;
             }
 
-            // this is a valid link, we want the href attribute
-            try {
-                // get an absolute path
-                Path basePath = FileSystems.getDefault().getPath(currURL);
-                Path resolvedPath = basePath.getParent().resolve(href);
-                Path absolutePath = resolvedPath.normalize();
-                String path = absolutePath.toString();
+            seen.add(path);
 
-                if (seen.contains(path)) {
-                    return;
-                }
-
-                seen.add(path);
-
-                URL tmp = new URL(path);
-                newURLs.add(tmp);
-            } catch (MalformedURLException e) {
-                System.err.println("Error in CrawlingMarkupHandler: malformed url");
-            }
+            URL tmp = new URL(path);
+            newURLs.add(tmp);
+        } catch (MalformedURLException e) {
+            System.err.println("Error in CrawlingMarkupHandler: malformed url");
         }
     }
 
@@ -153,8 +141,7 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
 
     @Override
     public void handleStandaloneElement(String elementName, Map<String,String> attributes, boolean minimized, int line, int col) {
-        // TODO handle single element tags
-        ignoreLastTag = true;
+        handleOpenElement(elementName, attributes, line, col);
     }
 
     /**
@@ -173,20 +160,12 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
 
         StringBuilder str = new StringBuilder();
         for(int i = start; i < start + length; i++) {
-            // Instead of printing raw whitespace, we're escaping it
-            String currChar = Character.toString(ch[i]).toLowerCase();
-            if (currChar.matches("\\s")) {
+            String curr = Character.toString(ch[i]);
+            if (curr.matches("\\w") || curr.equals("-")) {
+                str.append(curr);
+            } else {
                 addWord(str.toString());
                 str = new StringBuilder();
-            } else if (currChar.matches("\\w")) {
-                str.append(currChar);
-            } else {
-                // TODO handle other characters
-                if (currChar.equals("-")) {
-                    str.append(currChar);
-                } else if (currChar.equals("\\")) {
-                    str.append("\\");
-                }
             }
         }
     }
@@ -196,7 +175,11 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
      * @param str the word to be add
      */
     private void addWord(String str) {
-        index.add(str, currURL, currWordLoc);
+        if (str.length() == 0) {
+            return;
+        }
+
+        index.add(str.toLowerCase(), currPage, currWordLoc);
         currWordLoc++;
     }
 }

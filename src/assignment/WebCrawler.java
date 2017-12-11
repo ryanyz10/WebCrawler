@@ -38,13 +38,12 @@ public class WebCrawler {
         // Create a parser from the attoparser library, and our handler for markup.
         ISimpleMarkupParser parser = new SimpleMarkupParser(ParseConfiguration.htmlConfiguration());
         CrawlingMarkupHandler handler = new CrawlingMarkupHandler();
-
         // Try to start crawling, adding new URLS as we see them.
         try {
             while (!remaining.isEmpty()) {
                 // pass the current URL to the handler so it can keep track of the information
                 URL currURL = remaining.poll();
-                handler.setURL(currURL.toString());
+                handler.setURL(currURL);
                 // Parse the next URL's page
                 try {
                     parser.parse(new InputStreamReader(currURL.openStream()), handler);
@@ -52,16 +51,15 @@ public class WebCrawler {
                     System.err.printf("Could not find file %s\n", currURL.toString());
                 } catch (org.attoparser.ParseException e) {
                     System.err.printf("Could not parse %s\n", currURL.toString());
+                } catch (Exception e) {
+                    System.err.printf("%s with %s\n", e.getClass(), currURL.toString());
                 }
-
 
                 // Add any new URLs
                 remaining.addAll(handler.newURLs());
             }
 
             handler.getIndex().save("index.db");
-            System.out.printf("Total time taken: %.3f seconds\n", ((double)handler.getTotalTime())/1000000000);
-            System.out.printf("Pages visited: %d\n", handler.getTotalPages());
         } catch (Exception e) {
             // Bad exception handling :(
             System.err.println("Error: Index generation failed!");
