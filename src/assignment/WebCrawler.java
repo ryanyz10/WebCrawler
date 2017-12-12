@@ -39,6 +39,7 @@ public class WebCrawler {
         ISimpleMarkupParser parser = new SimpleMarkupParser(ParseConfiguration.htmlConfiguration());
         CrawlingMarkupHandler handler = new CrawlingMarkupHandler();
         // Try to start crawling, adding new URLS as we see them.
+        int totalPages = 0;
         try {
             while (!remaining.isEmpty()) {
                 // pass the current URL to the handler so it can keep track of the information
@@ -47,6 +48,7 @@ public class WebCrawler {
                 // Parse the next URL's page
                 try {
                     parser.parse(new InputStreamReader(currURL.openStream()), handler);
+                    totalPages++;
                 } catch (FileNotFoundException e) {
                     System.err.printf("Could not find file %s\n", currURL.toString());
                 } catch (org.attoparser.ParseException e) {
@@ -60,6 +62,7 @@ public class WebCrawler {
             }
 
             handler.getIndex().save("index.db");
+            System.out.println(totalPages);
         } catch (Exception e) {
             // Bad exception handling :(
             System.err.println("Error: Index generation failed!");

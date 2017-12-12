@@ -96,38 +96,38 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
             return;
         }
 
-
         TreeMap<String, String> caselessAttr = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         caselessAttr.putAll(attributes);
 
-        String href = caselessAttr.get("href");
-
-        if (href == null) {
-            return;
-        }
-
-        // only examine files that are valid web pages
-        if (!href.contains(".html") && !href.contains(".htm")) {
-            return;
-        }
-
-        try {
-            // get an absolute path
-            Path basePath = FileSystems.getDefault().getPath(currPage.toString());
-            Path resolvedPath = basePath.getParent().resolve(href);
-            Path absolutePath = resolvedPath.normalize();
-            String path = absolutePath.toString();
-
-            if (seen.contains(path)) {
+        if (elementName.equals("a")) {
+            String href = caselessAttr.get("href");
+            if (href == null) {
                 return;
             }
 
-            seen.add(path);
+            // only examine files that are valid web pages
+            if (!href.contains(".html") && !href.contains(".htm")) {
+                return;
+            }
 
-            URL tmp = new URL(path);
-            newURLs.add(tmp);
-        } catch (MalformedURLException e) {
-            System.err.println("Error in CrawlingMarkupHandler: malformed url");
+            try {
+                // get an absolute path
+                Path basePath = FileSystems.getDefault().getPath(currPage.toString());
+                Path resolvedPath = basePath.getParent().resolve(href);
+                Path absolutePath = resolvedPath.normalize();
+                String path = absolutePath.toString();
+
+                if (seen.contains(path)) {
+                    return;
+                }
+
+                seen.add(path);
+
+                URL tmp = new URL(path);
+                newURLs.add(tmp);
+            } catch (MalformedURLException e) {
+                System.err.println("Error in CrawlingMarkupHandler: malformed url");
+            }
         }
     }
 
@@ -167,6 +167,10 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
                 addWord(str.toString());
                 str = new StringBuilder();
             }
+        }
+
+        if (str.length() != 0) {
+            addWord(str.toString());
         }
     }
 
