@@ -61,6 +61,7 @@ public class WebCrawler {
                 remaining.addAll(handler.newURLs());
             }
 
+            System.out.println("Writing to index");
             handler.getIndex().save("index.db");
             System.out.println(totalPages);
         } catch (Exception e) {

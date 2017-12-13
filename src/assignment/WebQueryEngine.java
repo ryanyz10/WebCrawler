@@ -55,7 +55,6 @@ public class WebQueryEngine {
         ASTNode root = buildAST(tokens);
 
         Set<Page> result = parseTree(root);
-        System.out.println(result.size());
         return result;
     }
 

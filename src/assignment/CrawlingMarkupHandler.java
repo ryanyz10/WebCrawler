@@ -141,6 +141,10 @@ public class CrawlingMarkupHandler extends AbstractSimpleMarkupHandler {
 
     @Override
     public void handleStandaloneElement(String elementName, Map<String,String> attributes, boolean minimized, int line, int col) {
+        if (attributes == null || attributes.size() == 0) {
+            return;
+        }
+        
         handleOpenElement(elementName, attributes, line, col);
     }
 
