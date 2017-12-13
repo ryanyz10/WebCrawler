@@ -17,6 +17,11 @@ public class HTMLBuilder {
     private HashMap<Integer, HashSet<String>> docWords;
     private int numPages;
 
+    /**
+     * initialize and generate pages
+     * @param numPages the number of pages to create
+     * @param wordsPerPage how many words to put on each page
+     */
     public HTMLBuilder(int numPages, int wordsPerPage) {
         try {
             Scanner reader = new Scanner(new File("words.txt"));
@@ -51,18 +56,27 @@ public class HTMLBuilder {
         createIndex();
     }
 
-    public boolean[][] getGraph() {
-        return graph;
-    }
-
+    /**
+     * returns the words present on each html page
+     * @return docWords
+     */
     public HashMap<Integer, HashSet<String>> getDocWords() {
         return docWords;
     }
 
+    /**
+     * using Math.random, return true 50% of the time
+     * @return true half the time, false half the time
+     */
     private boolean random() {
         return ((int)(Math.random() * 100) + 1) >= 51;
     }
 
+    /**
+     * generate and write an HTML document
+     * @param docNum the number of the document to write
+     * @param numWords how many words to write
+     */
     private void writeDocument(int docNum, int numWords) {
         HashSet<String> words = new HashSet<>();
         for (int i = 0; i < numWords; i++) {
@@ -99,6 +113,9 @@ public class HTMLBuilder {
         }
     }
 
+    /**
+     * create an index page containing links to all the pages
+     */
     private void createIndex() {
         String body = "";
         body += "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\"><title>Index</title>\n" +
@@ -118,6 +135,10 @@ public class HTMLBuilder {
         }
     }
 
+    /**
+     * grabs a random word from the list of words
+     * @return a random word in the list of words
+     */
     private String getRandomWord() {
         return words.get((int)(Math.random() * words.size()));
     }

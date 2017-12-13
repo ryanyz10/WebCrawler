@@ -24,6 +24,9 @@ public class WebQueryEngineTest {
     private static WebQueryEngine engine;
     private String[] operands;
 
+    /**
+     * Generate HTML documents and initialize the WebQueryEngine
+     */
     @BeforeClass
     public static void genHTML() {
         builder = new HTMLBuilder(NUM_PAGES, 20);
@@ -55,11 +58,18 @@ public class WebQueryEngineTest {
 
     }
 
+    /**
+     * reset the operand array before each test
+     */
     @Before
     public void before() {
         operands = new String[0];
     }
 
+    /**
+     * find some number of operands that we know exist on the same page
+     * @param numOperands the number of operands to get
+     */
     private void getOperands(int numOperands) {
         HashMap<Integer, HashSet<String>> docWords = builder.getDocWords();
         operands = new String[numOperands];
@@ -81,6 +91,11 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * get the document number of the html file given the url
+     * @param url the url of the file
+     * @return the doc number
+     */
     private int getDocNum(String url) {
         String tmp = url.substring(url.lastIndexOf("/") + 1, url.indexOf(".html"));
 
@@ -91,6 +106,9 @@ public class WebQueryEngineTest {
         return Integer.parseInt(tmp.substring(tmp.indexOf("doc") + 3));
     }
 
+    /**
+     * test a basic query (1 word)
+     */
     @Test
     public void testBasicQuery() {
         getOperands(1);
@@ -109,6 +127,9 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * test a simple AND query
+     */
     @Test
     public void testAndQuery() {
         getOperands(2);
@@ -128,6 +149,9 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * test a simple OR query
+     */
     @Test
     public void testOrQuery() {
         getOperands(2);
@@ -150,10 +174,13 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * test a query containing AND and OR
+     */
     @Test
     public void testAndOrQuery() {
         getOperands(3);
-        String query = operands[0] + " & " + operands[1] + " | " + operands[2];
+        String query = "((" + operands[0] + " & " + operands[1] + ")" + " | " + operands[2] + ")";
         Collection<Page> result = engine.query(query);
         for (Page page : result) {
             int docNum = getDocNum(page.toString());
@@ -167,6 +194,9 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * test a negative query
+     */
     @Test
     public void testNegativeQuery() {
         getOperands(1);
@@ -184,6 +214,9 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * test a phrase query
+     */
     @Test
     public void testPhraseQuery() {
         String query = "\"A quick brown fox jumped over the lazy dog\"";
@@ -211,6 +244,9 @@ public class WebQueryEngineTest {
         }
     }
 
+    /**
+     * test an implicit and query
+     */
     @Test
     public void testImplicitAndQuery() {
         getOperands(2);
@@ -234,7 +270,9 @@ public class WebQueryEngineTest {
         }
     }
 
-
+    /**
+     * test a query with precedence (no parentheses)
+     */
     @Test
     public void testPrecedence() {
         getOperands(4);

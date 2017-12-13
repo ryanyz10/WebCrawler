@@ -52,6 +52,10 @@ public class WebQueryEngine {
         query = query.toLowerCase();
 
         ArrayList<Token> tokens = getTokens(query);
+        if (tokens == null) {
+            return new HashSet<>();
+        }
+
         ASTNode root = buildAST(tokens);
 
         Set<Page> result = parseTree(root);
@@ -71,66 +75,72 @@ public class WebQueryEngine {
         Token prev = null;
         boolean quotationSeen = false;
 
-        for (String str : splitQuery) {
-            for (int i = 0; i < str.length(); i++) {
-                String curr = Character.toString(str.charAt(i));
+        try {
+            for (String str : splitQuery) {
+                for (int i = 0; i < str.length(); i++) {
+                    String curr = Character.toString(str.charAt(i));
 
-                if (operators.contains(curr)) {
-                    Token oper = new Token(curr);
-                    if (builder.length() > 0) {
-                        Token tmp = new Token(builder.toString());
-                        if (!quotationSeen && needsImplicit(prev, tmp)) {
-                            tokens.add(new Token("&", Token.AND));
-                        }
-
-                        tokens.add(tmp);
-                        builder = new StringBuilder();
-                        prev = tmp;
-                    }
-
-                    switch (curr) {
-                        case "|": {
-                            oper.precedence = Token.OR;
-                            break;
-                        }
-                        case "&": {
-                            oper.precedence = Token.AND;
-                            break;
-                        }
-                        case "!": {
-                            oper.precedence = Token.NOT;
-                            break;
-                        }
-                        default: {
-                            if (!quotationSeen && needsImplicit(prev, oper)) {
+                    if (operators.contains(curr)) {
+                        Token oper = new Token(curr);
+                        if (builder.length() > 0) {
+                            Token tmp = new Token(builder.toString());
+                            if (!quotationSeen && needsImplicit(prev, tmp)) {
                                 tokens.add(new Token("&", Token.AND));
                             }
 
-                            if (curr.equals("\"")) {
-                                quotationSeen = !quotationSeen;
+                            tokens.add(tmp);
+                            builder = new StringBuilder();
+                            prev = tmp;
+                        }
+
+                        switch (curr) {
+                            case "|": {
+                                oper.precedence = Token.OR;
+                                break;
+                            }
+                            case "&": {
+                                oper.precedence = Token.AND;
+                                break;
+                            }
+                            case "!": {
+                                oper.precedence = Token.NOT;
+                                break;
+                            }
+                            default: {
+                                if (!quotationSeen && needsImplicit(prev, oper)) {
+                                    tokens.add(new Token("&", Token.AND));
+                                }
+
+                                if (curr.equals("\"")) {
+                                    quotationSeen = !quotationSeen;
+                                }
                             }
                         }
+
+                        prev = oper;
+                        tokens.add(oper);
+                    } else {
+                        builder.append(curr);
+                    }
+                }
+
+                if (builder.length() > 0) {
+                    Token tmp = new Token(builder.toString());
+
+                    if (!quotationSeen && needsImplicit(prev, tmp)) {
+                        tokens.add(new Token("&", Token.AND));
                     }
 
-                    prev = oper;
-                    tokens.add(oper);
-                } else {
-                    builder.append(curr);
+                    prev = tmp;
+                    tokens.add(tmp);
+                    builder = new StringBuilder();
                 }
             }
-
-            if (builder.length() > 0) {
-                Token tmp = new Token(builder.toString());
-
-                if (!quotationSeen && needsImplicit(prev, tmp)) {
-                    tokens.add(new Token("&", Token.AND));
-                }
-
-                prev = tmp;
-                tokens.add(tmp);
-                builder = new StringBuilder();
-            }
+        } catch (Exception e) {
+            System.err.printf("%s in getTokens()\n", e.getClass());
+            return null;
         }
+
 
         return tokens;
     }
@@ -200,79 +210,84 @@ public class WebQueryEngine {
         Deque<ASTNode> nodeStack = new ArrayDeque<>();
         Deque<Token> operatorStack = new ArrayDeque<>();
         boolean quotationSeen = false;
+        try {
+            for (Token token : tokens) {
+                if (operators.contains(token.token)) {
+                    if (token.token.equals("(")) {
+                        operatorStack.push(token);
+                    } else if (token.token.equals(")")) {
+                        Token oper = operatorStack.pop();
 
-        for (Token token : tokens) {
-            if (operators.contains(token.token)) {
-                if (token.token.equals("(")) {
-                    operatorStack.push(token);
-                } else if (token.token.equals(")")) {
-                    Token oper = operatorStack.pop();
-
-                    while (!oper.token.equals("(")) {
-                        ASTNode newNode = new ASTNode(oper);
-                        newNode.children.add(nodeStack.pop());
-                        newNode.children.add(nodeStack.pop());
-                        nodeStack.push(newNode);
-                        oper = operatorStack.pop();
-                    }
-                } else if (token.token.equals("\"")) {
-                    if (quotationSeen) {
-                        ASTNode newNode = new ASTNode(token);
-                        ASTNode node = nodeStack.pop();
-                        while (!node.token.token.equals("\"")) {
-                            newNode.children.add(node);
-                            node = nodeStack.pop();
-                        }
-
-                        nodeStack.push(newNode);
-                        quotationSeen = false;
-                    } else {
-                        nodeStack.push(new ASTNode(token));
-                        quotationSeen = true;
-                    }
-                } else {
-                    Token oper = operatorStack.peek();
-
-                    while (oper != null && !oper.token.equals("(") && oper.precedence >= token.precedence) {
-                        operatorStack.pop();
-                        ASTNode newNode = new ASTNode(oper);
-
-                        if (oper.token.equals("!")) {
+                        while (!oper.token.equals("(")) {
+                            ASTNode newNode = new ASTNode(oper);
                             newNode.children.add(nodeStack.pop());
+                            newNode.children.add(nodeStack.pop());
+                            nodeStack.push(newNode);
+                            oper = operatorStack.pop();
+                        }
+                    } else if (token.token.equals("\"")) {
+                        if (quotationSeen) {
+                            ASTNode newNode = new ASTNode(token);
+                            ASTNode node = nodeStack.pop();
+                            while (!node.token.token.equals("\"")) {
+                                newNode.children.add(node);
+                                node = nodeStack.pop();
+                            }
+
+                            nodeStack.push(newNode);
+                            quotationSeen = false;
                         } else {
-                            newNode.children.add(nodeStack.pop());
-                            newNode.children.add(nodeStack.pop());
+                            nodeStack.push(new ASTNode(token));
+                            quotationSeen = true;
+                        }
+                    } else {
+                        Token oper = operatorStack.peek();
+
+                        while (oper != null && !oper.token.equals("(") && oper.precedence >= token.precedence) {
+                            operatorStack.pop();
+                            ASTNode newNode = new ASTNode(oper);
+
+                            if (oper.token.equals("!")) {
+                                newNode.children.add(nodeStack.pop());
+                            } else {
+                                newNode.children.add(nodeStack.pop());
+                                newNode.children.add(nodeStack.pop());
+                            }
+
+                            nodeStack.push(newNode);
+                            oper = operatorStack.peek();
                         }
 
-                        nodeStack.push(newNode);
-                        oper = operatorStack.peek();
+                        operatorStack.push(token);
                     }
 
-                    operatorStack.push(token);
+                } else {
+                    nodeStack.push(new ASTNode(token));
                 }
-
-            } else {
-                nodeStack.push(new ASTNode(token));
             }
-        }
 
-        while (!operatorStack.isEmpty()) {
-            Token oper = operatorStack.pop();
-            if (oper.token.equals("!")) {
-                ASTNode newNode = new ASTNode(oper);
-                newNode.children.add(nodeStack.pop());
-                nodeStack.push(newNode);
-            } else {
-                ASTNode newNode = new ASTNode(oper);
-                newNode.children.add(nodeStack.pop());
-                newNode.children.add(nodeStack.pop());
-                nodeStack.push(newNode);
+            while (!operatorStack.isEmpty()) {
+                Token oper = operatorStack.pop();
+                if (oper.token.equals("!")) {
+                    ASTNode newNode = new ASTNode(oper);
+                    newNode.children.add(nodeStack.pop());
+                    nodeStack.push(newNode);
+                } else {
+                    ASTNode newNode = new ASTNode(oper);
+                    newNode.children.add(nodeStack.pop());
+                    newNode.children.add(nodeStack.pop());
+                    nodeStack.push(newNode);
+                }
             }
+        } catch (Exception e) {
+            System.err.printf("%s in buildAST\n", e.getClass());
+            return null;
         }
 
         ASTNode root = nodeStack.pop();
         if (!nodeStack.isEmpty()) {
-            throw new IllegalStateException("WebQueryEngine: buildAST() nodeStack should be empty at end");
+            System.err.println("nodeStack should be empty at end of buildAST");
+            return null;
         }
 
         return root;
@@ -284,6 +299,10 @@ public class WebQueryEngine {
      * @return a collection of pages conforming to the query
      */
     private Set<Page> parseTree(ASTNode node) {
+        if (node == null) {
+            return new HashSet<>();
+        }
+
         // base case: single word query
         if (!operators.contains(node.token.token)) {
             return index.getPagesWith(node.token.token);
